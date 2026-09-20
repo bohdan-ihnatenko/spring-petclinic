@@ -50,14 +50,22 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
 
-      - name: Update Helm values in GitOps repo
+      - name: Update Helm values in Infrastructure repo
         if: github.ref == 'refs/heads/main'
         run: |
-          git clone https://${{ secrets.GH_TOKEN }}@github.com/bohdan-ihnatenko/project-x.git gitops
-          cd gitops
-          sed -i 's|tag: .*|tag: "${{ steps.tag.outputs.tag }}"|' helm/petclinic/values.yaml
-          git config user.email "ci@github-actions"
-          git config user.name "GitHub Actions"
-          git add helm/petclinic/values.yaml
-          git commit -m "ci: update petclinic image tag to ${{ steps.tag.outputs.tag }}"
-          git push
+          # 1. Клонируем репозиторий с инфрой
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/bohdan-ihnatenko/laba.git infra
+          cd infra
+          
+          # 2. Обновляем tag строго по пути gitops/charts/petclinic/values.yaml
+          sed -i 's|tag: .*|tag: "${{ steps.tag.outputs.tag }}"|' gitops/charts/petclinic/values.yaml
+          
+          # 3. Пушим изменения обратно в репозиторий laba
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add gitops/charts/petclinic/values.yaml
+          
+          if ! git diff --staged --quiet; then
+            git commit -m "ci: update petclinic image tag to ${{ steps.tag.outputs.tag }}"
+            git push
+          fi
